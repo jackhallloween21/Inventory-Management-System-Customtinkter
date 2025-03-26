@@ -9,7 +9,7 @@ This project is an inventory management system developed using customtkinter for
 - SQLite integration for efficient data storage and retrieval.
 
 ## Screenshots
-<img src="screenshots/ezgif-16a2f4953b15d4.gif"></image> 
+<img src="screenshot/ezgif-16a2f4953b15d4.gif"></image> 
 
 
 
