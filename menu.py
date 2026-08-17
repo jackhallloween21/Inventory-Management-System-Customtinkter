@@ -27,13 +27,20 @@ FONT_FAMILY = "Segoe UI"
 class Menu:
     """Represents the main dashboard and menu interface of InvenTrack."""
 
-    def __init__(self, con, user, login_win):
+    def __init__(self, con, user, login_win=None):
         ctk.set_default_color_theme("dark-blue")
         ctk.set_appearance_mode("dark")
 
         self.login_win = login_win
-        self.window = ctk.CTkToplevel(self.login_win)
-        self.window.protocol("WM_DELETE_WINDOW", self.logout)
+        if self.login_win:
+            try:
+                self.login_win.destroy()
+            except Exception:
+                pass
+
+        self.window = ctk.CTk()
+        self.window.title("InvenTrack - Inventory Management")
+        self.window.protocol("WM_DELETE_WINDOW", self.on_close)
         self.window.configure(fg_color=BG_COLOR)
 
         self.con = con
@@ -47,12 +54,18 @@ class Menu:
         self.make_window()
 
     def logout(self):
-        """Handles logout and cleanup."""
+        """Handles user logout."""
         self.logout = True
         try:
             self.window.destroy()
-            self.login_win.destroy()
-            self.con.close()
+        except Exception:
+            pass
+
+    def on_close(self):
+        """Handles closing the application from the window title bar."""
+        self.logout = False
+        try:
+            self.window.destroy()
         except Exception:
             pass
 
@@ -65,8 +78,8 @@ class Menu:
         x = max(0, int((screen_width / 2) - (width / 2)))
         y = max(0, int((screen_height / 2) - (height / 2)))
         self.window.geometry(f"{width}x{height}+{x}+{y}")
-        self.login_win.withdraw()
-        self.window.resizable(False, False)
+        self.window.minsize(1050, 600)
+        self.window.resizable(True, True)
 
         # Main Layout: Sidebar (220px) + Main Content Area
         self.make_panel()
@@ -797,6 +810,19 @@ class Menu:
         )
         btn_pending.pack(side="left", padx=(0, 8))
 
+        # Print Receipt Button
+        btn_receipt = ctk.CTkButton(
+            toolbar,
+            text="🧾 Print Receipt",
+            font=(self.font, 12, "bold"),
+            fg_color="#223355",
+            hover_color="#2D4470",
+            text_color="#64BFFF",
+            height=36,
+            command=self.print_receipt_from_selection,
+        )
+        btn_receipt.pack(side="left", padx=(0, 8))
+
         # Export CSV Button
         btn_csv = ctk.CTkButton(
             toolbar,
@@ -816,6 +842,7 @@ class Menu:
         headings = ("Order ID", "Customer", "Date", "Total Items", "Total Amount", "Payment Status")
         widths = [140, 240, 160, 140, 180, 180]
         self.make_table(tbl_container, headings, widths)
+        self.tree.bind("<Double-1>", lambda event: self.print_receipt_from_selection())
         self._filter_orders()
 
     def _filter_orders(self):
@@ -857,6 +884,162 @@ class Menu:
         self.con.commit()
         messagebox.showinfo("Status Updated", f"Order #{order_id} status marked as '{new_status.title()}'.")
         self._filter_orders()
+
+    def print_receipt_from_selection(self):
+        """Finds selected order ID from the active table and opens the receipt dialog."""
+        sel = self.tree.selection()
+        if not sel:
+            error("Please select an order from the list to view / print its receipt.")
+            return
+
+        values = self.tree.item(sel[0], "values")
+        order_id = values[0]
+        self.show_receipt_dialog(order_id)
+
+    def show_receipt_dialog(self, order_id):
+        """Displays a formatted receipt modal dialog with print, save, and copy options."""
+        self.cur.execute(
+            "SELECT order_id, customer, date, total_items, total_amount, payment_status FROM orders WHERE order_id=?",
+            (order_id,),
+        )
+        order = self.cur.fetchone()
+        if not order:
+            error(f"Order #{order_id} was not found in records.")
+            return
+
+        o_id, cust, o_date, total_qty, total_amt, status = order
+
+        self.cur.execute("""
+            SELECT oi.product_id, COALESCE(p.product_name, oi.product_id), oi.quantity, oi.price, (oi.quantity * oi.price)
+            FROM order_items oi
+            LEFT JOIN products p ON oi.product_id = p.product_id
+            WHERE oi.order_id=?
+        """, (order_id,))
+        items = self.cur.fetchall()
+
+        # Build formatted plain text receipt
+        lines = []
+        lines.append("=" * 52)
+        lines.append("                INVENTRACK STORE                ")
+        lines.append("       Smart Inventory & Sales Management       ")
+        lines.append("=" * 52)
+        lines.append(f"Receipt No:   INV-{int(o_id):05d}" if str(o_id).isdigit() else f"Receipt No:   INV-{o_id}")
+        lines.append(f"Date:         {o_date}")
+        lines.append(f"Customer:     {cust}")
+        lines.append(f"Payment:      {status.upper()}")
+        lines.append("-" * 52)
+        lines.append(f"{'Item':<22} {'Qty':>4} {'Price':>11} {'Total':>11}")
+        lines.append("-" * 52)
+
+        if items:
+            for p_id, p_name, qty, price, line_total in items:
+                name_display = (p_name[:20] + "..") if len(p_name) > 22 else p_name
+                lines.append(f"{name_display:<22} {qty:>4} {price:>11.2f} {line_total:>11.2f}")
+        else:
+            lines.append(f"{'Items summary':<22} {total_qty:>4} {'-':>11} {total_amt:>11.2f}")
+
+        lines.append("-" * 52)
+        lines.append(f"{'Total Items:':<32} {total_qty:>18}")
+        lines.append(f"{'Grand Total (INR):':<32} ₹{total_amt:>17.2f}")
+        lines.append("=" * 52)
+        lines.append("          Thank you for your business!          ")
+        lines.append("=" * 52)
+
+        receipt_text = "\n".join(lines)
+
+        # Create Receipt Modal Dialog
+        dlg = self._dialog(f"Receipt - Order #{o_id}", width=520, height=620)
+
+        # Header Title
+        lbl_title = ctk.CTkLabel(
+            dlg,
+            text=f"🧾 Order Receipt #{o_id}",
+            font=(self.font, 18, "bold"),
+            text_color=TEXT_COLOR,
+        )
+        lbl_title.pack(anchor="w", padx=25, pady=(20, 10))
+
+        # Receipt Textbox Preview
+        txt_box = ctk.CTkTextbox(
+            dlg,
+            width=470,
+            height=430,
+            corner_radius=8,
+            fg_color=CARD_ALT_COLOR,
+            text_color=TEXT_COLOR,
+            font=("Consolas", 12),
+        )
+        txt_box.pack(padx=25, pady=(0, 15))
+        txt_box.insert("1.0", receipt_text)
+        txt_box.configure(state="disabled")
+
+        # Action Buttons Row
+        btn_bar = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_bar.pack(fill="x", padx=25, pady=(0, 20))
+
+        def save_and_print():
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Text file", "*.txt"), ("All files", "*.*")],
+                initialfile=f"Receipt_Order_{o_id}_{o_date}.txt",
+                title="Save Receipt",
+            )
+            if filepath:
+                try:
+                    with open(filepath, "w", encoding="utf-8") as f:
+                        f.write(receipt_text)
+                    
+                    try:
+                        if sys.platform.startswith("win"):
+                            os.startfile(filepath)
+                    except Exception:
+                        pass
+
+                    messagebox.showinfo("Receipt Saved", f"Receipt saved successfully to:\n{filepath}")
+                except Exception as e:
+                    error(f"Failed to save receipt: {e}")
+
+        def copy_clipboard():
+            self.window.clipboard_clear()
+            self.window.clipboard_append(receipt_text)
+            messagebox.showinfo("Copied", "Receipt copied to clipboard!")
+
+        btn_save = ctk.CTkButton(
+            btn_bar,
+            text="🖨️ Save / Print",
+            font=(self.font, 12, "bold"),
+            fg_color=PRIMARY_COLOR,
+            hover_color=PRIMARY_HOVER,
+            width=130,
+            height=36,
+            command=save_and_print,
+        )
+        btn_save.pack(side="left", padx=(0, 8))
+
+        btn_copy = ctk.CTkButton(
+            btn_bar,
+            text="📋 Copy Text",
+            font=(self.font, 12, "bold"),
+            fg_color=CARD_COLOR,
+            hover_color="#2A2A48",
+            width=110,
+            height=36,
+            command=copy_clipboard,
+        )
+        btn_copy.pack(side="left", padx=(0, 8))
+
+        btn_close = ctk.CTkButton(
+            btn_bar,
+            text="Close",
+            font=(self.font, 12, "bold"),
+            fg_color="transparent",
+            hover_color="#2A161A",
+            text_color=DANGER_COLOR,
+            width=80,
+            height=36,
+            command=dlg.destroy,
+        )
+        btn_close.pack(side="right")
 
     # ── 4. USERS VIEW (ADMIN ONLY) ──────────────────────────────────
     def users(self):
@@ -1239,15 +1422,16 @@ class Menu:
         )
         self.con.commit()
 
-        messagebox.showinfo(
-            "Order Placed",
-            f"Order #{order_id} placed successfully!\nPayment Status: {payment_status.title()}",
-        )
-
         for item in items:
             self.tree.delete(item)
 
         self._update_cart_total()
+
+        if messagebox.askyesno(
+            "Order Placed",
+            f"Order #{order_id} placed successfully!\nPayment Status: {payment_status.title()}\n\nWould you like to view & print the receipt now?",
+        ):
+            self.show_receipt_dialog(order_id)
 
     # ── 6. HISTORY VIEW ────────────────────────────────────────────
     def history(self):
@@ -1276,6 +1460,19 @@ class Menu:
         )
         search_entry.pack(side="left", padx=(0, 15))
 
+        # Print Receipt Button
+        btn_receipt = ctk.CTkButton(
+            toolbar,
+            text="🧾 Print Receipt",
+            font=(self.font, 12, "bold"),
+            fg_color="#223355",
+            hover_color="#2D4470",
+            text_color="#64BFFF",
+            height=36,
+            command=self.print_receipt_from_selection,
+        )
+        btn_receipt.pack(side="left", padx=(0, 8))
+
         btn_csv = ctk.CTkButton(
             toolbar,
             text="📥 Export CSV",
@@ -1294,6 +1491,7 @@ class Menu:
         headings = ("Order ID", "Product Name", "Quantity", "Price", "Date", "Payment Status")
         widths = [140, 280, 120, 140, 180, 180]
         self.make_table(tbl_container, headings, widths)
+        self.tree.bind("<Double-1>", lambda event: self.print_receipt_from_selection())
         self._filter_history()
 
     def _filter_history(self):

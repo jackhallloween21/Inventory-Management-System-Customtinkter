@@ -291,34 +291,39 @@ class Login:
     def login(self, event=None):
         """Authenticate the user by checking credentials in SQLite."""
         uname = self.username.get().strip()
-        pwd = self.password.get().strip()
+        pwd = self.password.get()
         
         # Ensure default Admin account exists
         self.cur.execute(
             "INSERT OR IGNORE INTO users (username, password, account_type) VALUES ('Admin', 'Admin', 'ADMIN');"
         )
-        self.cur.execute("SELECT * FROM users WHERE username=? AND password=?", (uname, pwd))
+        self.cur.execute("SELECT * FROM users WHERE username=? COLLATE NOCASE AND password=?", (uname, pwd))
         f = self.cur.fetchall()
+        if not f:
+            # Also try stripped password in case of trailing spaces
+            self.cur.execute("SELECT * FROM users WHERE username=? COLLATE NOCASE AND password=?", (uname, pwd.strip()))
+            f = self.cur.fetchall()
+            
         if f:
-            print(f"└─Logged in as {uname}")
+            print(f"└─Logged in as {f[0][0]}")
             self.user = f[0]
-            self.window.quit()
+            self.window.destroy()
         else:
             error("Invalid Username or Password")
 
     def register(self, event=None):
         """Create a new user account in SQLite."""
         uname = self.username.get().strip()
-        pwd = self.password.get().strip()
+        pwd = self.password.get()
 
-        if len(uname) == 0 or len(pwd) == 0:
+        if len(uname) == 0 or len(pwd.strip()) == 0:
             error("Username and Password cannot be empty")
             return
         if len(uname) > 20 or len(pwd) > 20:
             error("Username and Password must be 20 characters or less")
             return
 
-        self.cur.execute("SELECT * FROM users WHERE username=?", (uname,))
+        self.cur.execute("SELECT * FROM users WHERE username=? COLLATE NOCASE", (uname,))
         if self.cur.fetchall():
             error("Username already exists")
             return
@@ -329,4 +334,4 @@ class Login:
         self.con.commit()
         messagebox.showinfo("Account Created", "Your account has been successfully created!")
         self.user = (uname, pwd, "USER")
-        self.window.quit()
+        self.window.destroy()
