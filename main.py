@@ -1,6 +1,16 @@
+import sys
+import os
 import sqlite3
 from login import Login
 from menu import Menu
+
+# Resolve a writable path for the database that persists across runs.
+# When frozen by PyInstaller (--onefile) sys.executable is the .exe itself;
+# when running from source __file__ is this script.
+_BASE_DIR = os.path.dirname(
+    sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+)
+DB_PATH = os.path.join(_BASE_DIR, 'inventory.db')
 
 class Main:
     """Represents the main application window for the inventory management system."""
@@ -9,7 +19,7 @@ class Main:
 
     def run(self):
         try:
-            self.con = sqlite3.connect('inventory.db')
+            self.con = sqlite3.connect(DB_PATH)
             print('* Connected to SQLite database')
             self.cur = self.con.cursor()
             self.setup_database()

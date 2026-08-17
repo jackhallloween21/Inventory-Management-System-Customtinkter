@@ -4,7 +4,7 @@ from datetime import date
 import customtkinter as ctk
 from PIL import Image
 
-from utils import error, add_graphs
+from utils import error, add_graphs, resource_path
 
 class Menu:
     """Represents a menu for the inventory management system."""
@@ -66,7 +66,7 @@ class Menu:
             sections = ["dashboard", "inventory", "shop", "history", "logout"]
 
         for section in sections:
-            img = ctk.CTkImage(Image.open(f"imgs/{section}.png").resize((30, 30)), size=(30, 30))
+            img = ctk.CTkImage(Image.open(resource_path(f"imgs/{section}.png")).resize((30, 30)), size=(30, 30))
             button = ctk.CTkButton(side_panel, text=section.title(), image=img, anchor="w", font=(self.font, 18),
                                    fg_color="transparent", hover_color="#212121", command=section_functions[section])
             button.pack(padx=50, pady=50)

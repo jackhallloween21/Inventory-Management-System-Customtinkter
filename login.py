@@ -3,7 +3,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 from PIL import Image
 
-from utils import error 
+from utils import error, resource_path
 
 class Login:
     """Represents a login window for user authentication."""
@@ -23,7 +23,7 @@ class Login:
         self.window.title("Sign In")
         self.window.bind('<Return>', self.login)
         
-        img = ctk.CTkImage(dark_image = Image.open("imgs/bg2.jpg").resize((500,600)),size=(500,600))
+        img = ctk.CTkImage(dark_image = Image.open(resource_path("imgs/bg2.jpg")).resize((500,600)),size=(500,600))
         bg = ctk.CTkLabel(master=self.window,image=img)
         self.window.resizable(False, False)  # Disable window resizing
         bg.place(x=0,y=0)
