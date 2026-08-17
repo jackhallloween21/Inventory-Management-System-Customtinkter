@@ -33,7 +33,8 @@ def add_graphs(cur, frame, bar_pos=(30, 10), pie_pos=(760, 10)):
         pie_pos: (x, y) pixel position for the pie-chart widget relative to *frame*.
     """
     _BG = '#131325'   # matches the card colour in the new palette
-    _FG = '#C8C8E8'   # soft light text
+    _FG = '#E8E8F0'   # light text
+    _DIM = '#7A7A9A'  # dim text
 
     plt.style.use('dark_background')
     for param in ('text.color', 'axes.labelcolor', 'xtick.color', 'ytick.color'):
@@ -42,7 +43,7 @@ def add_graphs(cur, frame, bar_pos=(30, 10), pie_pos=(760, 10)):
         plt.rcParams[param] = _BG
 
     colors = [
-        '#6C63FF', '#00D4AA', '#FF6B6B', '#FFB347',
+        '#6C63FF', '#00D4AA', '#FFB347', '#FF6B6B',
         '#64BFFF', '#A652BB', '#51E898', '#FFD500', '#FF7A5A', '#8ED1FC',
     ]
 
@@ -55,13 +56,17 @@ def add_graphs(cur, frame, bar_pos=(30, 10), pie_pos=(760, 10)):
         labels  = [x[0].title() for x in payments]
         counts  = [x[1]          for x in payments]
 
-        fig = plt.Figure(figsize=(2.8, 2.8), dpi=100)
+        fig = plt.Figure(figsize=(3.0, 2.6), dpi=100)
         fig.patch.set_facecolor(_BG)
         ax = fig.add_subplot(1, 1, 1)
-        ax.pie(counts, labels=labels, autopct='%1.0f%%',
-               colors=colors[:len(labels)], startangle=90,
-               textprops={'fontsize': 8, 'color': _FG})
-        ax.set_title('Order Status', color='#E8E8F0', fontsize=10, pad=8)
+        if counts:
+            ax.pie(counts, labels=labels, autopct='%1.0f%%',
+                   colors=colors[:len(labels)], startangle=90,
+                   textprops={'fontsize': 8, 'color': _FG})
+        else:
+            ax.text(0.5, 0.5, 'No orders yet', horizontalalignment='center',
+                    verticalalignment='center', color=_DIM, fontsize=9)
+        ax.set_title('Order Status Breakdown', color=_FG, fontsize=10, pad=8, fontweight='bold')
 
         canvas = FigureCanvasTkAgg(fig, master=frame)
         canvas.draw()
@@ -71,7 +76,7 @@ def add_graphs(cur, frame, bar_pos=(30, 10), pie_pos=(760, 10)):
 
     # ── Bar: monthly revenue ──────────────────────────────────
     try:
-        fig = plt.Figure(figsize=(6.5, 3.5), dpi=100)
+        fig = plt.Figure(figsize=(6.2, 2.6), dpi=100)
         fig.patch.set_facecolor(_BG)
         ax = fig.add_subplot(1, 1, 1)
 
@@ -82,7 +87,7 @@ def add_graphs(cur, frame, bar_pos=(30, 10), pie_pos=(760, 10)):
             "       SUM(oi.quantity * oi.price) AS earnings "
             "FROM orders o "
             "JOIN order_items oi ON o.order_id = oi.order_id "
-            "WHERE o.payment_status = 'paid' "
+            "WHERE LOWER(o.payment_status) = 'paid' "
             "  AND strftime('%Y', o.date) = strftime('%Y', 'now') "
             "GROUP BY month ORDER BY month;"
         )
@@ -90,19 +95,19 @@ def add_graphs(cur, frame, bar_pos=(30, 10), pie_pos=(760, 10)):
         for month, amt in cur.fetchall():
             earnings[int(month) - 1] = amt
 
-        ax.bar(months, earnings, color=colors[:12], width=0.65, edgecolor='none')
-        ax.set_xlabel('Month',       fontsize=9,  color='#7A7A9A')
-        ax.set_ylabel('Revenue (₹)', fontsize=9,  color='#7A7A9A')
-        ax.set_title('Monthly Revenue', color='#E8E8F0', fontsize=10, pad=8)
+        ax.bar(months, earnings, color='#6C63FF', width=0.6, edgecolor='none')
+        ax.set_xlabel('Month',       fontsize=8,  color=_DIM)
+        ax.set_ylabel('Revenue',     fontsize=8,  color=_DIM)
+        ax.set_title('Monthly Revenue Trend', color=_FG, fontsize=10, pad=8, fontweight='bold')
         ax.tick_params(axis='both', labelsize=8)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_color('#2A2A42')
-        ax.spines['bottom'].set_color('#2A2A42')
-        fig.tight_layout(pad=1.2)
+        ax.spines['left'].set_color('#1C1C35')
+        ax.spines['bottom'].set_color('#1C1C35')
+        fig.tight_layout(pad=1.0)
 
         canvas = FigureCanvasTkAgg(fig, master=frame)
         canvas.draw()
         canvas.get_tk_widget().place(x=bar_pos[0], y=bar_pos[1])
     except Exception as exc:
-        print(f'Error creating bar chart: {exc}')
+        print(f'Error creating bar chart: {exc}')
