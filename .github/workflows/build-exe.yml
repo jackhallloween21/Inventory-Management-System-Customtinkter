@@ -1,15 +1,16 @@
-name: Build Windows Executable
+name: Build and Publish Release
 
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+    tags:
+      - 'v*' # Triggers whenever you push a tag starting with 'v' (e.g., v1.0, v1.0.0)
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
+    permissions:
+      contents: write # Grants GitHub Actions permission to publish releases
 
     steps:
     - name: Checkout Code
@@ -24,8 +25,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install customtkinter matplotlib pyinstaller
-        # If you have a requirements.txt file, uncomment the line below:
-        # if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
     - name: Build Executable with PyInstaller
       run: |
@@ -34,15 +33,17 @@ jobs:
           --collect-all matplotlib `
           --name "InventoryManagementSystem" `
           main.py
-      # Note: Change 'main.py' to your main entry point script (e.g., app.py)
 
     - name: Zip the Output Directory
       run: |
         Compress-Archive -Path dist/InventoryManagementSystem/* -DestinationPath InventoryManagementSystem-Windows.zip
 
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: Inventory-Management-System-Exe
-        path: InventoryManagementSystem-Windows.zip
-        
+        files: InventoryManagementSystem-Windows.zip
+        name: "Release ${{ github.ref_name }}"
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.G_TOKEN }}
