@@ -23,14 +23,16 @@ class Main:
             print('* Connected to SQLite database')
             self.cur = self.con.cursor()
             self.setup_database()
-            self.login = Login(self.con)
-            self.login.window.mainloop()
-            if self.login.user:
-                self.menu = Menu(self.con, self.login.user, self.login.window)
+            while True:
+                self.login = Login(self.con)
+                self.login.window.mainloop()
+                if not self.login.user:
+                    break
+                self.menu = Menu(self.con, self.login.user)
                 self.menu.window.mainloop()
-                if self.menu.logout:
-                    self.con.close()  # Close the database connection
-                    self.run()  # Reinitialize the Main class to show the login screen again
+                if not self.menu.logout:
+                    break
+            self.con.close()
         except sqlite3.Error as e:
             print(f"Error: {e}")
 
