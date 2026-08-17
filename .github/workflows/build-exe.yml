@@ -35,14 +35,10 @@ jobs:
           --name "InventoryManagementSystem" `
           main.py
 
-    - name: Zip the Output Directory
-      run: |
-        Compress-Archive -Path dist/InventoryManagementSystem/* -DestinationPath InventoryManagementSystem-Windows.zip
-
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: InventoryManagementSystem-Windows.zip
+        files: dist/InventoryManagementSystem.exe
         name: "Release ${{ github.ref_name }}"
         draft: false
         prerelease: false
