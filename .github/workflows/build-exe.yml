@@ -28,7 +28,7 @@ jobs:
 
     - name: Build Executable with PyInstaller
       run: |
-        pyinstaller --noconfirm --onedir --windowed `
+        pyinstaller --noconfirm --onefile --windowed `
           --add-data "imgs;imgs" `
           --collect-all customtkinter `
           --collect-all matplotlib `
