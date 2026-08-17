@@ -30,7 +30,7 @@ class Main:
                     break
                 self.menu = Menu(self.con, self.login.user)
                 self.menu.window.mainloop()
-                if not self.menu.logout:
+                if not self.menu.logout_triggered:
                     break
             self.con.close()
         except sqlite3.Error as e:

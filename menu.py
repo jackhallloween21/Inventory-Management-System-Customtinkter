@@ -47,7 +47,7 @@ class Menu:
         self.cur = con.cursor()
         self.user = user  # (username, password, account_type)
         self.font = FONT_FAMILY
-        self.logout = False
+        self.logout_triggered = False
         self.nav_buttons = {}
         self.current_section = None
 
@@ -55,16 +55,18 @@ class Menu:
 
     def logout(self):
         """Handles user logout."""
-        self.logout = True
+        self.logout_triggered = True
         try:
+            self.window.withdraw()
             self.window.destroy()
         except Exception:
             pass
 
     def on_close(self):
         """Handles closing the application from the window title bar."""
-        self.logout = False
+        self.logout_triggered = False
         try:
+            self.window.withdraw()
             self.window.destroy()
         except Exception:
             pass
@@ -402,12 +404,12 @@ class Menu:
         lower_box.pack(fill="both", expand=True, padx=30, pady=(0, 20))
 
         # Chart Container Card (Left / Top)
-        chart_card = ctk.CTkFrame(lower_box, fg_color=CARD_COLOR, corner_radius=12, height=300)
+        chart_card = ctk.CTkFrame(lower_box, fg_color=CARD_COLOR, corner_radius=12, height=350)
         chart_card.pack(fill="x", pady=(0, 15))
         chart_card.pack_propagate(False)
 
         try:
-            add_graphs(self.cur, chart_card, bar_pos=(15, 10), pie_pos=(660, 10))
+            add_graphs(self.cur, chart_card)
         except Exception as e:
             print(f"Error rendering graphs: {e}")
 
@@ -1534,15 +1536,18 @@ class Menu:
         style = ttk.Style()
         style.theme_use("default")
 
+        table_font = (self.font, 13)
+        heading_font = (self.font, 13, "bold")
+
         style.configure(
             "Treeview",
             background=CARD_COLOR,
             foreground=TEXT_COLOR,
-            rowheight=32,
+            rowheight=38,
             fieldbackground=CARD_COLOR,
             bordercolor=CARD_COLOR,
             borderwidth=0,
-            font=(self.font, 11),
+            font=table_font,
         )
         style.map(
             "Treeview",
@@ -1555,7 +1560,8 @@ class Menu:
             background=CARD_ALT_COLOR,
             foreground=TEXT_DIM_COLOR,
             relief="flat",
-            font=(self.font, 11, "bold"),
+            font=heading_font,
+            padding=(10, 8),
         )
         style.map("Treeview.Heading", background=[("active", "#2A2A48")])
 
@@ -1567,7 +1573,7 @@ class Menu:
         # Configure columns
         for idx, col in enumerate(columns):
             w = widths[idx] if idx < len(widths) else 150
-            self.tree.column(col, width=w, anchor="w", stretch=True)
+            self.tree.column(col, width=w, minwidth=80, anchor="w", stretch=True)
             self.tree.heading(col, text=col, anchor="w")
 
         # Scrollbar
@@ -1579,8 +1585,8 @@ class Menu:
         scrollbar.pack(side="right", fill="y", padx=(0, 2), pady=2)
         self.tree.pack(side="left", fill="both", expand=True, padx=2, pady=2)
 
-        # Color-coded tags
-        self.tree.tag_configure("paid", foreground=SECONDARY_COLOR)
-        self.tree.tag_configure("pending", foreground=WARNING_COLOR)
-        self.tree.tag_configure("low_stock", foreground=DANGER_COLOR)
-        self.tree.tag_configure("normal", foreground=TEXT_COLOR)
+        # Color-coded tags with explicit font size
+        self.tree.tag_configure("paid", foreground=SECONDARY_COLOR, font=table_font)
+        self.tree.tag_configure("pending", foreground=WARNING_COLOR, font=table_font)
+        self.tree.tag_configure("low_stock", foreground=DANGER_COLOR, font=table_font)
+        self.tree.tag_configure("normal", foreground=TEXT_COLOR, font=table_font)
